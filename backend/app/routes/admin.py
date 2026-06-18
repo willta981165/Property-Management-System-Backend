@@ -1,6 +1,3 @@
-import random
-import string
-
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import get_jwt_identity
 
@@ -9,12 +6,6 @@ from ..models.resident import Resident, ResidentRole
 from ..utils.decorators import admin_required
 
 admin_bp = Blueprint('admin', __name__)
-
-
-def _generate_password(length: int = 10) -> str:
-    prefix = ''.join(random.choices(string.ascii_uppercase, k=2))
-    body = ''.join(random.choices(string.ascii_letters + string.digits, k=length - 3))
-    return f"{prefix}-{body}"
 
 
 @admin_bp.route('/residents', methods=['GET'])
@@ -291,24 +282,3 @@ def delete_resident(resident_id):
     return jsonify({'message': '帳號已刪除'}), 200
 
 
-@admin_bp.route('/generate-password', methods=['GET'])
-@admin_required
-def generate_password():
-    """
-    產生隨機初始密碼
-    ---
-    tags:
-      - Admin
-    security:
-      - Bearer: []
-    responses:
-      200:
-        description: 隨機密碼
-        schema:
-          type: object
-          properties:
-            password:
-              type: string
-              example: AB-xK3mPq7
-    """
-    return jsonify({'password': _generate_password()}), 200

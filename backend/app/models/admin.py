@@ -10,6 +10,7 @@ class Admin(db.Model):
     employee_id = db.Column(db.String(20), unique=True, nullable=False)  # 員工編號 ID-0000
     department = db.Column(db.String(100), nullable=False)               # 部門
     email = db.Column(db.String(120), unique=True, nullable=False)        # 工作信箱
+    project_name = db.Column(db.String(200), nullable=False)              # 建案名稱
     password_hash = db.Column(db.String(255), nullable=False)
     is_active = db.Column(db.Boolean, nullable=False, default=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
@@ -28,6 +29,7 @@ class Admin(db.Model):
             'employee_id': self.employee_id,
             'department': self.department,
             'email': self.email,
+            'project_name': self.project_name,
             'role': 'admin',
             'is_active': self.is_active,
             'created_at': self.created_at.isoformat(),

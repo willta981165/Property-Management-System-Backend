@@ -33,7 +33,7 @@ def _get_current_user():
 @auth_bp.route('/admin/register', methods=['POST'])
 def admin_register():
     """
-    管理員帳號建立（僅限第一次）
+    管理員帳號建立
     ---
     tags:
       - Auth
@@ -43,7 +43,7 @@ def admin_register():
         required: true
         schema:
           type: object
-          required: [name, employee_id, department, email, password, confirm_password]
+          required: [name, employee_id, department, project_name, email, password, confirm_password]
           properties:
             name:
               type: string
@@ -54,6 +54,9 @@ def admin_register():
             department:
               type: string
               example: 管理部
+            project_name:
+              type: string
+              example: 幸福花園社區
             email:
               type: string
               example: admin@example.com
@@ -80,23 +83,20 @@ def admin_register():
       400:
         description: 欄位驗證錯誤
       409:
-        description: 管理員已存在，請直接登入
+        description: 員工編號或 email 已被使用
     """
-    if Admin.query.first():
-        return jsonify({
-            'error': '管理員帳號已存在，請直接登入',
-            'redirect': 'login',
-        }), 409
+    import re
 
     data = request.get_json(silent=True) or {}
     name = (data.get('name') or '').strip()
     employee_id = (data.get('employee_id') or '').strip()
     department = (data.get('department') or '').strip()
+    project_name = (data.get('project_name') or '').strip()
     email = (data.get('email') or '').strip().lower()
     password = data.get('password') or ''
     confirm_password = data.get('confirm_password') or ''
 
-    if not all([name, employee_id, department, email, password, confirm_password]):
+    if not all([name, employee_id, department, project_name, email, password, confirm_password]):
         return jsonify({'error': '所有欄位皆為必填'}), 400
 
     if len(password) < 8:
@@ -105,14 +105,20 @@ def admin_register():
     if password != confirm_password:
         return jsonify({'error': '兩次輸入的密碼不一致'}), 400
 
-    import re
     if not re.match(r'^ID-\d{4}$', employee_id):
         return jsonify({'error': '員工編號格式錯誤，應為 ID-0000'}), 400
+
+    if Admin.query.filter_by(employee_id=employee_id).first():
+        return jsonify({'error': '員工編號已被使用'}), 409
+
+    if Admin.query.filter_by(email=email).first():
+        return jsonify({'error': 'Email 已被使用'}), 409
 
     admin = Admin(
         name=name,
         employee_id=employee_id,
         department=department,
+        project_name=project_name,
         email=email,
     )
     admin.set_password(password)
