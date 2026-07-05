@@ -4,18 +4,24 @@ from ..extensions import db, bcrypt
 
 
 class ResidentRole(enum.Enum):
-    resident = 'resident'  # 住戶
-    family = 'family'      # 家屬
+    resident = 'resident'
+    family = 'family'
 
 
 class Resident(db.Model):
     __tablename__ = 'residents'
+    __table_args__ = (
+        db.UniqueConstraint('unit_code', 'organization_id', name='uq_resident_unit_org'),
+        db.UniqueConstraint('phone', 'organization_id', name='uq_resident_phone_org'),
+        db.UniqueConstraint('email', 'organization_id', name='uq_resident_email_org'),
+    )
 
     id = db.Column(db.Integer, primary_key=True)
+    organization_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=False)
     name = db.Column(db.String(100), nullable=False)
-    unit_code = db.Column(db.String(50), unique=True, nullable=False)
-    phone = db.Column(db.String(20), unique=True, nullable=True)
-    email = db.Column(db.String(120), unique=True, nullable=True)
+    unit_code = db.Column(db.String(50), nullable=False)
+    phone = db.Column(db.String(20), nullable=True)
+    email = db.Column(db.String(120), nullable=True)
     password_hash = db.Column(db.String(255), nullable=False)
     role = db.Column(db.Enum(ResidentRole), nullable=False, default=ResidentRole.resident)
     notes = db.Column(db.Text, nullable=True)
@@ -33,6 +39,7 @@ class Resident(db.Model):
     def to_dict(self):
         return {
             'id': self.id,
+            'organization_id': self.organization_id,
             'name': self.name,
             'unit_code': self.unit_code,
             'phone': self.phone,

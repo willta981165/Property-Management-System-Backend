@@ -4,13 +4,17 @@ from ..extensions import db, bcrypt
 
 class Admin(db.Model):
     __tablename__ = 'admins'
+    __table_args__ = (
+        db.UniqueConstraint('employee_id', 'organization_id', name='uq_admin_emp_org'),
+        db.UniqueConstraint('email', 'organization_id', name='uq_admin_email_org'),
+    )
 
     id = db.Column(db.Integer, primary_key=True)
+    organization_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=False)
     name = db.Column(db.String(100), nullable=False)
-    employee_id = db.Column(db.String(20), unique=True, nullable=False)  # 員工編號 ID-0000
-    department = db.Column(db.String(100), nullable=False)               # 部門
-    email = db.Column(db.String(120), unique=True, nullable=False)        # 工作信箱
-    project_name = db.Column(db.String(200), nullable=False)              # 建案名稱
+    employee_id = db.Column(db.String(20), nullable=False)
+    department = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(120), nullable=True)
     password_hash = db.Column(db.String(255), nullable=False)
     is_active = db.Column(db.Boolean, nullable=False, default=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
@@ -25,11 +29,11 @@ class Admin(db.Model):
     def to_dict(self):
         return {
             'id': self.id,
+            'organization_id': self.organization_id,
             'name': self.name,
             'employee_id': self.employee_id,
             'department': self.department,
             'email': self.email,
-            'project_name': self.project_name,
             'role': 'admin',
             'is_active': self.is_active,
             'created_at': self.created_at.isoformat(),

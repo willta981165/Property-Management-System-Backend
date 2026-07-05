@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 from flask_jwt_extended import get_jwt_identity
 
 from ..extensions import db
@@ -31,23 +31,9 @@ def list_residents():
         name: role
         type: string
         enum: [resident, family]
-        description: 篩選角色（不填則回傳全部）
     responses:
       200:
         description: 住戶列表
-        schema:
-          type: object
-          properties:
-            residents:
-              type: array
-              items:
-                type: object
-            total:
-              type: integer
-            page:
-              type: integer
-            pages:
-              type: integer
       400:
         description: 無效的角色篩選值
     """
@@ -55,7 +41,7 @@ def list_residents():
     per_page = request.args.get('per_page', 20, type=int)
     role_filter = request.args.get('role')
 
-    query = Resident.query
+    query = Resident.query.filter_by(organization_id=g.org_id)
     if role_filter:
         try:
             query = query.filter(Resident.role == ResidentRole(role_filter))
@@ -112,16 +98,14 @@ def create_resident():
               default: resident
             notes:
               type: string
-              example: 備註說明
     responses:
       201:
         description: 帳號建立成功
       400:
         description: 必填欄位缺少或格式錯誤
       409:
-        description: 單位編號、手機或 email 已被使用
+        description: 單位編號、手機或 email 在此建案內已被使用
     """
-    admin_id = get_jwt_identity()
     data = request.get_json(silent=True) or {}
 
     name = (data.get('name') or '').strip()
@@ -140,23 +124,24 @@ def create_resident():
     except ValueError:
         return jsonify({'error': '帳號類型無效，可選 resident 或 family'}), 400
 
-    if Resident.query.filter_by(unit_code=unit_code).first():
-        return jsonify({'error': '單位編號已存在'}), 409
+    if Resident.query.filter_by(unit_code=unit_code, organization_id=g.org_id).first():
+        return jsonify({'error': '單位編號在此建案內已存在'}), 409
 
-    if phone and Resident.query.filter_by(phone=phone).first():
-        return jsonify({'error': '手機號碼已被使用'}), 409
+    if phone and Resident.query.filter_by(phone=phone, organization_id=g.org_id).first():
+        return jsonify({'error': '手機號碼在此建案內已被使用'}), 409
 
-    if email and Resident.query.filter_by(email=email).first():
-        return jsonify({'error': '電子郵件已被使用'}), 409
+    if email and Resident.query.filter_by(email=email, organization_id=g.org_id).first():
+        return jsonify({'error': '電子郵件在此建案內已被使用'}), 409
 
     resident = Resident(
+        organization_id=g.org_id,
         name=name,
         unit_code=unit_code,
         phone=phone,
         email=email,
         role=role,
         notes=notes,
-        created_by=admin_id,
+        created_by=get_jwt_identity(),
     )
     resident.set_password(password)
     db.session.add(resident)
@@ -212,7 +197,7 @@ def update_resident(resident_id):
       409:
         description: 單位編號、手機或 email 已被使用
     """
-    resident = db.get_or_404(Resident, resident_id)
+    resident = Resident.query.filter_by(id=resident_id, organization_id=g.org_id).first_or_404()
     data = request.get_json(silent=True) or {}
 
     if 'name' in data:
@@ -220,20 +205,32 @@ def update_resident(resident_id):
 
     if 'unit_code' in data:
         new_val = (data['unit_code'] or '').strip()
-        if Resident.query.filter(Resident.unit_code == new_val, Resident.id != resident_id).first():
-            return jsonify({'error': '單位編號已存在'}), 409
+        if Resident.query.filter(
+            Resident.unit_code == new_val,
+            Resident.organization_id == g.org_id,
+            Resident.id != resident_id,
+        ).first():
+            return jsonify({'error': '單位編號在此建案內已存在'}), 409
         resident.unit_code = new_val
 
     if 'phone' in data:
         new_val = (data['phone'] or '').strip() or None
-        if new_val and Resident.query.filter(Resident.phone == new_val, Resident.id != resident_id).first():
-            return jsonify({'error': '手機號碼已被使用'}), 409
+        if new_val and Resident.query.filter(
+            Resident.phone == new_val,
+            Resident.organization_id == g.org_id,
+            Resident.id != resident_id,
+        ).first():
+            return jsonify({'error': '手機號碼在此建案內已被使用'}), 409
         resident.phone = new_val
 
     if 'email' in data:
         new_val = (data['email'] or '').strip() or None
-        if new_val and Resident.query.filter(Resident.email == new_val, Resident.id != resident_id).first():
-            return jsonify({'error': '電子郵件已被使用'}), 409
+        if new_val and Resident.query.filter(
+            Resident.email == new_val,
+            Resident.organization_id == g.org_id,
+            Resident.id != resident_id,
+        ).first():
+            return jsonify({'error': '電子郵件在此建案內已被使用'}), 409
         resident.email = new_val
 
     if 'password' in data and data['password']:
@@ -276,9 +273,7 @@ def delete_resident(resident_id):
       404:
         description: 找不到住戶
     """
-    resident = db.get_or_404(Resident, resident_id)
+    resident = Resident.query.filter_by(id=resident_id, organization_id=g.org_id).first_or_404()
     db.session.delete(resident)
     db.session.commit()
     return jsonify({'message': '帳號已刪除'}), 200
-
-

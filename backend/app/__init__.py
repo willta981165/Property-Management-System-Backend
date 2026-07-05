@@ -53,9 +53,11 @@ def create_app(env=None):
 
     from .routes.auth import auth_bp
     from .routes.admin import admin_bp
+    from .routes.org import org_bp
 
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(admin_bp, url_prefix='/api/admin')
+    app.register_blueprint(org_bp, url_prefix='/api/org')
 
     @app.get('/health')
     def health():

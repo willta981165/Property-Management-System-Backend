@@ -6,7 +6,6 @@ __pycache__/
 .venv/
 venv/
 instance/
-migrations/
 *.egg-info/
 .DS_Store
 logs/
