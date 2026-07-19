@@ -4,6 +4,8 @@ from app.extensions import db
 from app.models.organization import Organization
 from app.models.admin import Admin
 from app.models.resident import Resident
+from app.models.facility import Facility
+from app.models.booking import Booking
 
 app = create_app()
 

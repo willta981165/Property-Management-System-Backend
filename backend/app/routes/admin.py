@@ -1,9 +1,18 @@
+# [GateGuard facts]
+# 1. Importers/callers: app/__init__.py:62 registers admin_bp from this file.
+# 2. This is an EDIT to an existing file — no new file created; no duplicate purpose.
+# 3. Affected APIs: GET/POST/PUT/DELETE /api/admin/residents
+#    Log data fields: admin_id(int), resident_id(int), unit_code(str), org_id(int), action(str).
+#    No passwords or PII (name/phone/email) written to log.
+# 4. User verbatim: "我現在要建立log機制 包含以上的部分 然後admin 住戶 公設 的api
+#    然後我要在本地產一個資料夾 這個資料夾會放我logging.txt"
 from flask import Blueprint, request, jsonify, g
 from flask_jwt_extended import get_jwt_identity
 
 from ..extensions import db
 from ..models.resident import Resident, ResidentRole
 from ..utils.decorators import admin_required
+from ..utils.logger import app_logger
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -147,6 +156,10 @@ def create_resident():
     db.session.add(resident)
     db.session.commit()
 
+    app_logger.info(
+        f"[ADMIN] Resident created | admin_id={g.admin.id} | "
+        f"resident_id={resident.id} | unit_code={unit_code} | org_id={g.org_id}"
+    )
     return jsonify({'message': '帳號建立成功', 'resident': resident.to_dict()}), 201
 
 
@@ -235,6 +248,10 @@ def update_resident(resident_id):
 
     if 'password' in data and data['password']:
         resident.set_password(data['password'])
+        app_logger.warning(
+            f"[ADMIN] Resident password reset | admin_id={g.admin.id} | "
+            f"resident_id={resident_id} | org_id={g.org_id}"
+        )
 
     if 'role' in data:
         try:
@@ -246,9 +263,19 @@ def update_resident(resident_id):
         resident.notes = (data['notes'] or '').strip() or None
 
     if 'is_active' in data:
-        resident.is_active = bool(data['is_active'])
+        new_active = bool(data['is_active'])
+        if not new_active:
+            app_logger.warning(
+                f"[ADMIN] Resident disabled | admin_id={g.admin.id} | "
+                f"resident_id={resident_id} | org_id={g.org_id}"
+            )
+        resident.is_active = new_active
 
     db.session.commit()
+    app_logger.info(
+        f"[ADMIN] Resident updated | admin_id={g.admin.id} | "
+        f"resident_id={resident_id} | org_id={g.org_id}"
+    )
     return jsonify({'message': '帳號更新成功', 'resident': resident.to_dict()}), 200
 
 
@@ -274,6 +301,11 @@ def delete_resident(resident_id):
         description: 找不到住戶
     """
     resident = Resident.query.filter_by(id=resident_id, organization_id=g.org_id).first_or_404()
+    unit_code = resident.unit_code
     db.session.delete(resident)
     db.session.commit()
+    app_logger.warning(
+        f"[ADMIN] Resident deleted | admin_id={g.admin.id} | "
+        f"resident_id={resident_id} | unit_code={unit_code} | org_id={g.org_id}"
+    )
     return jsonify({'message': '帳號已刪除'}), 200

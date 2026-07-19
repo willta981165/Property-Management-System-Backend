@@ -1,3 +1,7 @@
+# Importers/callers: app/__init__.py registers auth_bp from this file.
+# Affected APIs: POST /admin/register, POST /login, POST /refresh, GET /me, PUT /change-password
+# Data written to log: ip, user_id, user_type, org_id, identifier (no passwords logged)
+# User instruction verbatim: "我現在要建立log機制 包含以上的部分 然後admin 住戶 公設 的api"
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import (
     create_access_token,
@@ -10,6 +14,7 @@ from ..extensions import db
 from ..models.organization import Organization
 from ..models.admin import Admin
 from ..models.resident import Resident
+from ..utils.logger import app_logger
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -127,6 +132,12 @@ def admin_register():
     db.session.add(admin)
     db.session.commit()
 
+    ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+    app_logger.info(
+        f"[AUTH] Admin registered | ip={ip} | user_id={admin.id} | "
+        f"employee_id={employee_id} | org_id={org.id}"
+    )
+
     access_token, refresh_token = _make_tokens(admin.id, 'admin', 'admin', org.id)
 
     return jsonify({
@@ -198,14 +209,29 @@ def login():
         ).first()
         user_type = 'resident'
 
+    ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+
     if not user or not user.check_password(password):
+        app_logger.warning(
+            f"[AUTH] Login failed | ip={ip} | org_code={org_code} | "
+            f"identifier={identifier} | reason=wrong_credentials"
+        )
         return jsonify({'error': '帳號或密碼錯誤'}), 401
 
     if not user.is_active:
+        app_logger.warning(
+            f"[AUTH] Login failed | ip={ip} | user_id={user.id} | "
+            f"user_type={user_type} | reason=account_disabled"
+        )
         return jsonify({'error': '帳號已停用，請聯絡管理員'}), 403
 
     role = 'admin' if user_type == 'admin' else user.role.value
     access_token, refresh_token = _make_tokens(user.id, role, user_type, org.id)
+
+    app_logger.info(
+        f"[AUTH] Login success | ip={ip} | user_id={user.id} | "
+        f"user_type={user_type} | org_id={org.id}"
+    )
 
     return jsonify({
         'access_token': access_token,
@@ -326,8 +352,15 @@ def change_password():
         return jsonify({'error': '兩次輸入的密碼不一致'}), 400
 
     if not user.check_password(current_password):
+        app_logger.warning(
+            f"[AUTH] Password change failed | user_id={user.id} | "
+            f"user_type={user_type} | reason=wrong_current_password"
+        )
         return jsonify({'error': '目前密碼錯誤'}), 400
 
     user.set_password(new_password)
     db.session.commit()
+    app_logger.info(
+        f"[AUTH] Password changed | user_id={user.id} | user_type={user_type}"
+    )
     return jsonify({'message': '密碼修改成功'}), 200

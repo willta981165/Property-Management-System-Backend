@@ -1,6 +1,8 @@
 version: '3.9'
 
 services:
+  # Adds ./logs:/app/logs volume so Windows host can read logs/logging.txt directly.
+  # User: "這個資料夾會被放在backend內 然後會做double check 如果再開container偵測到該資料夾已經存在就不會再產"
   backend:
     build: .
     restart: unless-stopped
@@ -11,6 +13,8 @@ services:
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
     ports:
       - "5000:5000"
+    volumes:
+      - ./logs:/app/logs
     command: >
       sh -c "flask --app run init-db && gunicorn --bind 0.0.0.0:5000 --workers 4 --timeout 60 run:app"
 
