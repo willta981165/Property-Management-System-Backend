@@ -16,7 +16,7 @@ services:
     volumes:
       - ./logs:/app/logs
     command: >
-      sh -c "flask --app run init-db && gunicorn --bind 0.0.0.0:5000 --workers 4 --timeout 60 run:app"
+      sh -c "flask --app run db upgrade && gunicorn --bind 0.0.0.0:5000 --workers 4 --timeout 60 run:app"
 
   nginx:
     image: nginx:alpine
