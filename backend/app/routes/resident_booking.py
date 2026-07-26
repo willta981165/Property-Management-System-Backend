@@ -1,13 +1,21 @@
-# [GateGuard — denial #9 retry]
-# Callers: app/__init__.py:66. APIs: POST /bookings, GET /bookings/mine, DELETE /bookings/:id.
-# Log fields: resident_id, booking_id, facility_id, date(YYYY-MM-DD), HH:MM times, org_id.
-# No PII in log. User: "建立log機制...住戶 公設 的api...logging.txt...每天晚上12點撥離成logging0719.txt"
+# [GateGuard facts]
+# 1. Caller: app/__init__.py:112 registers resident_booking_bp at /api
+# 2. EDIT existing file — added FacilitySlot import + list_facility_slots route;
+#    create_booking rewritten to use slot_id (removed start_time/end_time params);
+#    cancel_booking now uses booking.slot.start_time; my_bookings ordering updated.
+# 3. New API: GET /api/facilities/:id/slots?date= (returns slot availability)
+#    POST /api/bookings body: {facility_id, booking_date, slot_id, num_people, notes}
+#    Log fields: resident_id(int), booking_id(int), facility_id(int), slot_id(int),
+#    booking_date(YYYY-MM-DD), org_id(int). No PII.
+# 4. User verbatim: "用戶在預約公設的時候也可以看到各個時間區段 可以選擇自己要的時間區段
+#    每個時段的預約人數 已報到 已離場 已預約 已取消 會依照住戶的預約 都會不同 這樣是否可行 好 先幫我改"
 from datetime import date, datetime, timezone, timedelta
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt, get_jwt_identity
 from ..extensions import db
 from ..models.booking import Booking, BookingStatus
 from ..models.facility import Facility
+from ..models.facility_slot import FacilitySlot
 from ..models.resident import Resident
 from ..utils.logger import app_logger
 
@@ -23,13 +31,6 @@ def _get_resident():
     return resident, org_id
 
 
-def _parse_time(time_str):
-    try:
-        return datetime.strptime(time_str.strip(), '%H:%M').time()
-    except (ValueError, AttributeError):
-        return None
-
-
 @resident_booking_bp.route('/facilities', methods=['GET'])
 @jwt_required()
 def list_facilities():
@@ -42,7 +43,7 @@ def list_facilities():
       - Bearer: []
     responses:
       200:
-        description: 公設列表
+        description: 公設列表（含各公設 slots）
     """
     _, org_id = _get_resident()
     if not org_id:
@@ -75,7 +76,7 @@ def get_facility(facility_id):
         required: true
     responses:
       200:
-        description: 公設詳情
+        description: 公設詳情（含 slots）
       404:
         description: 找不到公設
     """
@@ -86,6 +87,68 @@ def get_facility(facility_id):
         id=facility_id, organization_id=org_id, is_active=True
     ).first_or_404()
     return jsonify({'facility': facility.to_dict()}), 200
+
+
+@resident_booking_bp.route('/facilities/<int:facility_id>/slots', methods=['GET'])
+@jwt_required()
+def list_facility_slots(facility_id):
+    """
+    取得公設各時段的剩餘名額（住戶）
+    ---
+    tags:
+      - Resident - Booking
+    security:
+      - Bearer: []
+    parameters:
+      - in: path
+        name: facility_id
+        type: integer
+        required: true
+      - in: query
+        name: date
+        type: string
+        description: 查詢日期 YYYY-MM-DD，不帶預設今天
+    responses:
+      200:
+        description: 各時段資訊含已預約人數與剩餘名額
+      400:
+        description: 日期格式錯誤
+      404:
+        description: 找不到公設
+    """
+    claims = get_jwt()
+    org_id = claims.get('org_id')
+
+    facility = Facility.query.filter_by(
+        id=facility_id, organization_id=org_id, is_active=True
+    ).first_or_404()
+
+    date_str = request.args.get('date')
+    try:
+        query_date = date.fromisoformat(date_str) if date_str else date.today()
+    except ValueError:
+        return jsonify({'error': '日期格式錯誤，應為 YYYY-MM-DD'}), 400
+
+    slots = (
+        FacilitySlot.query
+        .filter_by(facility_id=facility_id)
+        .order_by(FacilitySlot.sort_order.asc(), FacilitySlot.id.asc())
+        .all()
+    )
+
+    result = []
+    for slot in slots:
+        booked = db.session.query(db.func.sum(Booking.num_people)).filter(
+            Booking.slot_id == slot.id,
+            Booking.booking_date == query_date,
+            Booking.status != BookingStatus.cancelled,
+        ).scalar() or 0
+        d = slot.to_dict()
+        d['booked_people'] = int(booked)
+        d['remaining'] = max(0, facility.max_capacity - int(booked))
+        result.append(d)
+
+    return jsonify({'date': query_date.isoformat(), 'slots': result}), 200
 
 
 @resident_booking_bp.route('/bookings', methods=['POST'])
@@ -104,7 +167,7 @@ def create_booking():
         required: true
         schema:
           type: object
-          required: [facility_id, booking_date, start_time, end_time, num_people]
+          required: [facility_id, booking_date, slot_id, num_people]
           properties:
             facility_id:
               type: integer
@@ -112,12 +175,10 @@ def create_booking():
             booking_date:
               type: string
               example: "2024-10-08"
-            start_time:
-              type: string
-              example: "08:00"
-            end_time:
-              type: string
-              example: "10:00"
+            slot_id:
+              type: integer
+              example: 3
+              description: 由 GET /api/facilities/:id/slots 取得
             num_people:
               type: integer
               example: 2
@@ -131,7 +192,7 @@ def create_booking():
       403:
         description: 僅住戶可預約
       404:
-        description: 找不到公設
+        description: 找不到公設或時段
     """
     resident, org_id = _get_resident()
     if not resident:
@@ -143,11 +204,10 @@ def create_booking():
 
     facility_id = data.get('facility_id')
     booking_date_str = data.get('booking_date') or ''
-    start_time_str = data.get('start_time') or ''
-    end_time_str = data.get('end_time') or ''
+    slot_id = data.get('slot_id')
     num_people = data.get('num_people')
 
-    if not all([facility_id, booking_date_str, start_time_str, end_time_str, num_people]):
+    if not facility_id or not booking_date_str or slot_id is None or num_people is None:
         return jsonify({'error': '公設、日期、時段、人數皆為必填'}), 400
 
     facility = Facility.query.filter_by(
@@ -164,14 +224,9 @@ def create_booking():
     if booking_date < date.today():
         return jsonify({'error': '不能預約過去的日期'}), 400
 
-    start_time = _parse_time(start_time_str)
-    end_time = _parse_time(end_time_str)
-    if not start_time or not end_time:
-        return jsonify({'error': '時段格式錯誤，應為 HH:MM'}), 400
-    if end_time <= start_time:
-        return jsonify({'error': '結束時間必須晚於開始時間'}), 400
-    if start_time < facility.open_time or end_time > facility.close_time:
-        return jsonify({'error': f'預約時段須在開放時間內 ({facility.open_time.strftime("%H:%M")} ~ {facility.close_time.strftime("%H:%M")})'}), 400
+    slot = FacilitySlot.query.filter_by(id=slot_id, facility_id=facility_id).first()
+    if not slot:
+        return jsonify({'error': '找不到該時段'}), 404
 
     try:
         num_people = int(num_people)
@@ -180,21 +235,17 @@ def create_booking():
     except (ValueError, TypeError):
         return jsonify({'error': '人數須為正整數'}), 400
 
-    # 計算同時段已確認預約的人數總和
-    overlapping = Booking.query.filter(
-        Booking.facility_id == facility_id,
+    booked_people = db.session.query(db.func.sum(Booking.num_people)).filter(
+        Booking.slot_id == slot_id,
         Booking.booking_date == booking_date,
-        Booking.status == BookingStatus.confirmed,
-        Booking.start_time < end_time,
-        Booking.end_time > start_time,
-    ).all()
-    booked_people = sum(b.num_people for b in overlapping)
+        Booking.status != BookingStatus.cancelled,
+    ).scalar() or 0
 
     if booked_people + num_people > facility.max_capacity:
         remaining = facility.max_capacity - booked_people
         app_logger.warning(
             f"[BOOKING] Rejected (capacity full) | resident_id={resident.id} | "
-            f"facility_id={facility_id} | date={booking_date} | "
+            f"facility_id={facility_id} | slot_id={slot_id} | date={booking_date} | "
             f"requested={num_people} | remaining={remaining} | org_id={org_id}"
         )
         return jsonify({
@@ -206,9 +257,8 @@ def create_booking():
         organization_id=org_id,
         facility_id=facility_id,
         resident_id=resident.id,
+        slot_id=slot_id,
         booking_date=booking_date,
-        start_time=start_time,
-        end_time=end_time,
         num_people=num_people,
         notes=(data.get('notes') or '').strip() or None,
     )
@@ -217,8 +267,8 @@ def create_booking():
 
     app_logger.info(
         f"[BOOKING] Created | resident_id={resident.id} | booking_id={booking.id} | "
-        f"facility_id={facility_id} | date={booking_date} | "
-        f"time={start_time_str}~{end_time_str} | people={num_people} | org_id={org_id}"
+        f"facility_id={facility_id} | slot_id={slot_id} | date={booking_date} | "
+        f"people={num_people} | org_id={org_id}"
     )
     return jsonify({'message': '預約成功', 'booking': booking.to_dict()}), 201
 
@@ -237,7 +287,7 @@ def my_bookings():
       - in: query
         name: status
         type: string
-        enum: [confirmed, cancelled]
+        enum: [confirmed, checked_in, departed, cancelled]
         description: 篩選狀態，不帶則回傳全部
     responses:
       200:
@@ -259,11 +309,11 @@ def my_bookings():
         try:
             query = query.filter(Booking.status == BookingStatus(status_filter))
         except ValueError:
-            return jsonify({'error': '無效的狀態篩選值，可選 confirmed 或 cancelled'}), 400
+            return jsonify({'error': '無效的狀態篩選值，可選 confirmed, checked_in, departed, cancelled'}), 400
 
     bookings = query.order_by(
         Booking.booking_date.desc(),
-        Booking.start_time.desc(),
+        Booking.slot_id.asc(),
     ).all()
 
     return jsonify({'bookings': [b.to_dict() for b in bookings]}), 200
@@ -308,10 +358,9 @@ def cancel_booking(booking_id):
     if booking.status == BookingStatus.cancelled:
         return jsonify({'error': '此預約已取消'}), 400
 
-    # 距離預約開始時間不足 1 小時則不允許取消
-    booking_start = datetime.combine(booking.booking_date, booking.start_time).replace(
-        tzinfo=timezone.utc
-    )
+    booking_start = datetime.combine(
+        booking.booking_date, booking.slot.start_time
+    ).replace(tzinfo=timezone.utc)
     if datetime.now(timezone.utc) >= booking_start - timedelta(hours=1):
         return jsonify({'error': '距離預約時間不足 1 小時，無法取消'}), 400
 
@@ -324,3 +373,112 @@ def cancel_booking(booking_id):
         f"date={booking.booking_date} | org_id={org_id}"
     )
     return jsonify({'message': '預約已取消', 'booking': booking.to_dict()}), 200
+
+
+# ── QR Code 報到 / 離場 ──
+
+@resident_booking_bp.route('/bookings/<int:booking_id>/checkin', methods=['PATCH'])
+@jwt_required()
+def checkin_booking(booking_id):
+    """
+    住戶掃 QR Code 報到
+    ---
+    tags:
+      - Resident - Booking
+    security:
+      - Bearer: []
+    parameters:
+      - in: path
+        name: booking_id
+        type: integer
+        required: true
+    responses:
+      200:
+        description: 報到成功
+      400:
+        description: 非預約當天 / 狀態錯誤
+      403:
+        description: 無權操作
+      404:
+        description: 找不到預約
+    """
+    resident, org_id = _get_resident()
+    if not resident:
+        return jsonify({'error': '僅住戶可使用此功能'}), 403
+
+    booking = Booking.query.filter_by(
+        id=booking_id, organization_id=org_id
+    ).first_or_404()
+
+    if booking.resident_id != resident.id:
+        return jsonify({'error': '無權操作此預約'}), 403
+
+    if booking.status != BookingStatus.confirmed:
+        return jsonify({'error': '此預約目前無法報到'}), 400
+
+    if booking.booking_date != date.today():
+        return jsonify({'error': '僅可在預約當天報到'}), 400
+
+    booking.status = BookingStatus.checked_in
+    booking.checked_in_at = datetime.now(timezone.utc)
+    booking.facility.current_occupancy += booking.num_people
+    db.session.commit()
+
+    app_logger.info(
+        f"[BOOKING] Check-in | resident_id={resident.id} | booking_id={booking_id} | "
+        f"facility_id={booking.facility_id} | org_id={org_id}"
+    )
+    return jsonify({'message': '報到成功', 'booking': booking.to_dict()}), 200
+
+
+@resident_booking_bp.route('/bookings/<int:booking_id>/departure', methods=['PATCH'])
+@jwt_required()
+def departure_booking(booking_id):
+    """
+    住戶掃 QR Code 離場
+    ---
+    tags:
+      - Resident - Booking
+    security:
+      - Bearer: []
+    parameters:
+      - in: path
+        name: booking_id
+        type: integer
+        required: true
+    responses:
+      200:
+        description: 離場成功
+      400:
+        description: 尚未報到 / 狀態錯誤
+      403:
+        description: 無權操作
+      404:
+        description: 找不到預約
+    """
+    resident, org_id = _get_resident()
+    if not resident:
+        return jsonify({'error': '僅住戶可使用此功能'}), 403
+
+    booking = Booking.query.filter_by(
+        id=booking_id, organization_id=org_id
+    ).first_or_404()
+
+    if booking.resident_id != resident.id:
+        return jsonify({'error': '無權操作此預約'}), 403
+
+    if booking.status != BookingStatus.checked_in:
+        return jsonify({'error': '尚未報到，無法進行離場'}), 400
+
+    booking.status = BookingStatus.departed
+    booking.departed_at = datetime.now(timezone.utc)
+    booking.facility.current_occupancy = max(
+        0, booking.facility.current_occupancy - booking.num_people
+    )
+    db.session.commit()
+
+    app_logger.info(
+        f"[BOOKING] Departure | resident_id={resident.id} | booking_id={booking_id} | "
+        f"facility_id={booking.facility_id} | org_id={org_id}"
+    )
+    return jsonify({'message': '離場成功', 'booking': booking.to_dict()}), 200

@@ -1,3 +1,10 @@
+# [GateGuard facts]
+# 1. Entry point called by Docker CMD: flask --app run init-db && gunicorn ... run:app
+#    No other callers. Imports all models so db.create_all() discovers all tables.
+# 2. EDIT existing file — added FacilitySlot import so facility_slots table is created
+#    by init-db command.
+# 3. No data schemas — CLI only.
+# 4. User verbatim: "好 先幫我改" (slot 系統實作確認)
 import click
 from app import create_app
 from app.extensions import db
@@ -5,6 +12,7 @@ from app.models.organization import Organization
 from app.models.admin import Admin
 from app.models.resident import Resident
 from app.models.facility import Facility
+from app.models.facility_slot import FacilitySlot
 from app.models.booking import Booking
 
 app = create_app()
