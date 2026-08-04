@@ -14,6 +14,8 @@ from app.models.resident import Resident
 from app.models.facility import Facility
 from app.models.facility_slot import FacilitySlot
 from app.models.booking import Booking
+from app.models.repair_category import RepairCategory
+from app.models.repair_ticket import RepairTicket
 
 app = create_app()
 

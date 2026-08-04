@@ -150,7 +150,7 @@ def create_resident():
         email=email,
         role=role,
         notes=notes,
-        created_by=get_jwt_identity(),
+        created_by=int(get_jwt_identity()),
     )
     resident.set_password(password)
     db.session.add(resident)

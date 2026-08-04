@@ -102,14 +102,18 @@ def create_app(env=None):
     from .routes.org import org_bp
     from .routes.admin_facility import admin_facility_bp
     from .routes.admin_booking import admin_booking_bp
+    from .routes.admin_repair import admin_repair_bp
     from .routes.resident_booking import resident_booking_bp
+    from .routes.resident_repair import resident_repair_bp
 
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(admin_bp, url_prefix='/api/admin')
     app.register_blueprint(org_bp, url_prefix='/api/org')
     app.register_blueprint(admin_facility_bp, url_prefix='/api/admin/facilities')
     app.register_blueprint(admin_booking_bp, url_prefix='/api/admin')
+    app.register_blueprint(admin_repair_bp, url_prefix='/api/admin')
     app.register_blueprint(resident_booking_bp, url_prefix='/api')
+    app.register_blueprint(resident_repair_bp, url_prefix='/api')
 
     @app.get('/health')
     def health():

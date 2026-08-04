@@ -21,9 +21,9 @@ auth_bp = Blueprint('auth', __name__)
 
 def _make_tokens(user_id: int, role: str, user_type: str, org_id: int):
     claims = {'role': role, 'user_type': user_type, 'org_id': org_id}
-    access_token = create_access_token(identity=user_id, additional_claims=claims)
+    access_token = create_access_token(identity=str(user_id), additional_claims=claims)
     refresh_token = create_refresh_token(
-        identity=user_id,
+        identity=str(user_id),
         additional_claims={'user_type': user_type, 'org_id': org_id},
     )
     return access_token, refresh_token
@@ -32,7 +32,7 @@ def _make_tokens(user_id: int, role: str, user_type: str, org_id: int):
 def _get_current_user():
     claims = get_jwt()
     user_type = claims.get('user_type')
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     if user_type == 'admin':
         return db.session.get(Admin, user_id), 'admin'
     return db.session.get(Resident, user_id), 'resident'
@@ -259,7 +259,7 @@ def refresh():
     claims = get_jwt()
     user_type = claims.get('user_type')
     org_id = claims.get('org_id')
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
 
     if user_type == 'admin':
         user = db.session.get(Admin, user_id)

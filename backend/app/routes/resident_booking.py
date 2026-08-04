@@ -27,7 +27,7 @@ def _get_resident():
     if claims.get('user_type') != 'resident':
         return None, None
     org_id = claims.get('org_id')
-    resident = db.session.get(Resident, get_jwt_identity())
+    resident = db.session.get(Resident, int(get_jwt_identity()))
     return resident, org_id
 
 

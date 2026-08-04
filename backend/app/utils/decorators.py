@@ -14,7 +14,7 @@ def admin_required(fn):
         if claims.get('role') != 'admin':
             return jsonify({'error': '需要管理員權限'}), 403
 
-        admin = db.session.get(Admin, get_jwt_identity())
+        admin = db.session.get(Admin, int(get_jwt_identity()))
         if not admin or not admin.is_active:
             return jsonify({'error': '帳號已停用'}), 403
 
