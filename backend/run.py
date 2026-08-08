@@ -16,6 +16,9 @@ from app.models.facility_slot import FacilitySlot
 from app.models.booking import Booking
 from app.models.repair_category import RepairCategory
 from app.models.repair_ticket import RepairTicket
+from app.models.qr_action_token import QrActionToken
+from app.models.qr_verification import QrVerification
+from app.models.booking_checkin_log import BookingCheckinLog
 
 app = create_app()
 
