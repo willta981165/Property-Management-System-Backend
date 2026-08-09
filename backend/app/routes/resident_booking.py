@@ -45,10 +45,9 @@ def list_facilities():
       200:
         description: 公設列表（含各公設 slots）
     """
-    _, org_id = _get_resident()
-    if not org_id:
-        claims = get_jwt()
-        org_id = claims.get('org_id')
+    resident, org_id = _get_resident()
+    if not resident:
+        return jsonify({'error': '僅住戶可使用此功能'}), 403
 
     facilities = (
         Facility.query
@@ -212,7 +211,7 @@ def create_booking():
 
     facility = Facility.query.filter_by(
         id=facility_id, organization_id=org_id, is_active=True
-    ).first()
+    ).with_for_update().first()
     if not facility:
         return jsonify({'error': '找不到公設或公設已停用'}), 404
 
@@ -358,6 +357,9 @@ def cancel_booking(booking_id):
     if booking.status == BookingStatus.cancelled:
         return jsonify({'error': '此預約已取消'}), 400
 
+    if booking.status in (BookingStatus.checked_in, BookingStatus.departed):
+        return jsonify({'error': '已報到或已離場的預約無法取消'}), 400
+
     booking_start = datetime.combine(
         booking.booking_date, booking.slot.start_time
     ).replace(tzinfo=timezone.utc)
@@ -419,9 +421,12 @@ def checkin_booking(booking_id):
     if booking.booking_date != date.today():
         return jsonify({'error': '僅可在預約當天報到'}), 400
 
+    facility = Facility.query.filter_by(
+        id=booking.facility_id
+    ).with_for_update().first()
     booking.status = BookingStatus.checked_in
     booking.checked_in_at = datetime.now(timezone.utc)
-    booking.facility.current_occupancy += booking.num_people
+    facility.current_occupancy += booking.num_people
     db.session.commit()
 
     app_logger.info(
@@ -470,10 +475,13 @@ def departure_booking(booking_id):
     if booking.status != BookingStatus.checked_in:
         return jsonify({'error': '尚未報到，無法進行離場'}), 400
 
+    facility = Facility.query.filter_by(
+        id=booking.facility_id
+    ).with_for_update().first()
     booking.status = BookingStatus.departed
     booking.departed_at = datetime.now(timezone.utc)
-    booking.facility.current_occupancy = max(
-        0, booking.facility.current_occupancy - booking.num_people
+    facility.current_occupancy = max(
+        0, facility.current_occupancy - booking.num_people
     )
     db.session.commit()
 

@@ -272,7 +272,7 @@ def refresh():
         return jsonify({'error': '帳號不存在或已停用'}), 401
 
     access_token = create_access_token(
-        identity=user_id,
+        identity=str(user_id),
         additional_claims={'role': role, 'user_type': user_type, 'org_id': org_id},
     )
     return jsonify({'access_token': access_token}), 200

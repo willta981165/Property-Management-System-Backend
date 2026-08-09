@@ -61,7 +61,7 @@ class RepairTicket(db.Model):
             'resident': {
                 'id': r.id,
                 'name': r.name,
-                'unit': r.unit,
+                'unit': r.unit_code,
                 'phone': r.phone,
             } if r else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,

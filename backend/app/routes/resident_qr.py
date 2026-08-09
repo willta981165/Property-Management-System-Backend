@@ -182,7 +182,7 @@ def get_departure_token(booking_id):
         return _qr_err('BOOKING_NOT_OWNED', '無權操作此預約', 403)
 
     if booking.status == BookingStatus.confirmed:
-        return _qr_err('BOOKING_NOT_OWNED', '尚未報到，無法取得離場 QR', 409)
+        return _qr_err('BOOKING_NOT_CHECKED_IN', '尚未報到，無法取得離場 QR', 409)
 
     if booking.status == BookingStatus.departed:
         return _qr_err('BOOKING_ALREADY_CHECKED_IN', '此預約已完成離場', 409)

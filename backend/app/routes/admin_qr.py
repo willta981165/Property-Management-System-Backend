@@ -86,7 +86,11 @@ def verify_qr():
     if qr_type not in SUPPORTED_TYPES:
         return _qr_err('QR_TYPE_UNSUPPORTED', f'不支援的 QR 類型: {qr_type}', 400)
 
-    token = QrActionToken.find_by_raw(raw_token)
+    token = db.session.execute(
+        select(QrActionToken)
+        .where(QrActionToken.token_hash == QrActionToken.hash_token(raw_token))
+        .with_for_update()
+    ).scalar_one_or_none()
     if not token:
         return _qr_err('QR_TOKEN_NOT_FOUND', '找不到此 QR Code', 404)
 
