@@ -104,9 +104,11 @@ def create_app(env=None):
     from .routes.admin_booking import admin_booking_bp
     from .routes.admin_repair import admin_repair_bp
     from .routes.admin_qr import admin_qr_bp
+    from .routes.admin_parcel import admin_parcel_bp
     from .routes.resident_booking import resident_booking_bp
     from .routes.resident_repair import resident_repair_bp
     from .routes.resident_qr import resident_qr_bp
+    from .routes.resident_parcel import resident_parcel_bp
 
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(admin_bp, url_prefix='/api/admin')
@@ -115,9 +117,11 @@ def create_app(env=None):
     app.register_blueprint(admin_booking_bp, url_prefix='/api/admin')
     app.register_blueprint(admin_repair_bp, url_prefix='/api/admin')
     app.register_blueprint(admin_qr_bp, url_prefix='/api/admin')
+    app.register_blueprint(admin_parcel_bp, url_prefix='/api/admin/parcels')
     app.register_blueprint(resident_booking_bp, url_prefix='/api')
     app.register_blueprint(resident_repair_bp, url_prefix='/api')
     app.register_blueprint(resident_qr_bp, url_prefix='/api')
+    app.register_blueprint(resident_parcel_bp, url_prefix='/api/resident/parcels')
 
     @app.get('/health')
     def health():
