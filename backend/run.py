@@ -19,6 +19,7 @@ from app.models.repair_ticket import RepairTicket
 from app.models.qr_action_token import QrActionToken
 from app.models.qr_verification import QrVerification
 from app.models.booking_checkin_log import BookingCheckinLog
+from app.models.parcel import Parcel
 
 app = create_app()
 
