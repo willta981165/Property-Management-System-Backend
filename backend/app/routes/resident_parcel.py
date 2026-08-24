@@ -1,23 +1,19 @@
-from datetime import datetime, timezone, timedelta
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt, get_jwt_identity
 from ..extensions import db
 from ..models.parcel import Parcel, ParcelStatus
 from ..models.resident import Resident
-from ..utils.logger import app_logger
+from ..utils.parcel_helpers import (
+    CLOSED_STATUSES,
+    utc_now as _utc_now, make_aware as _aware,
+    lazy_overdue_single as _lazy_overdue_single,
+    lazy_overdue_batch as _lazy_overdue_batch,
+    compute_days as _compute_days,
+)
 
 resident_parcel_bp = Blueprint('resident_parcel', __name__)
 
-_OVERDUE_DAYS = 7
-_CLOSED = {ParcelStatus.picked_up, ParcelStatus.returned, ParcelStatus.abnormal}
-
-
-def _utc_now():
-    return datetime.now(timezone.utc)
-
-
-def _aware(dt):
-    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+_CLOSED = CLOSED_STATUSES
 
 
 def _get_resident():
@@ -25,35 +21,10 @@ def _get_resident():
     if claims.get('user_type') != 'resident':
         return None, None
     org_id = claims.get('org_id')
+    if not org_id:
+        return None, None
     resident = db.session.get(Resident, int(get_jwt_identity()))
     return resident, org_id
-
-
-def _lazy_overdue_single(parcel):
-    if parcel.status == ParcelStatus.pending:
-        if _aware(parcel.arrived_at) + timedelta(days=_OVERDUE_DAYS) < _utc_now():
-            parcel.status = ParcelStatus.overdue
-            db.session.commit()
-
-
-def _lazy_overdue_batch(parcels):
-    needs_commit = False
-    for p in parcels:
-        if p.status == ParcelStatus.pending:
-            if _aware(p.arrived_at) + timedelta(days=_OVERDUE_DAYS) < _utc_now():
-                p.status = ParcelStatus.overdue
-                needs_commit = True
-    if needs_commit:
-        db.session.commit()
-
-
-def _compute_days(parcel):
-    days_waiting = (_utc_now() - _aware(parcel.arrived_at)).days
-    if parcel.status == ParcelStatus.pending:
-        return days_waiting, max(0, _OVERDUE_DAYS - days_waiting), None
-    if parcel.status == ParcelStatus.overdue:
-        return days_waiting, None, max(0, days_waiting - _OVERDUE_DAYS)
-    return days_waiting, None, None
 
 
 @resident_parcel_bp.route('', methods=['GET'])

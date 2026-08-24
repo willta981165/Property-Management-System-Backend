@@ -71,6 +71,7 @@ class Parcel(db.Model):
             'status': self.status.value if self.status else None,
             'picked_up_at': self.picked_up_at.isoformat() if self.picked_up_at else None,
             'abnormal_reason': self.abnormal_reason,
+            'signature_data': self.signature_data,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
         }

@@ -6,50 +6,21 @@ from ..models.parcel import Parcel, ParcelStatus, ParcelSize
 from ..models.resident import Resident
 from ..utils.decorators import admin_required
 from ..utils.logger import app_logger
+from ..utils.parcel_helpers import (
+    OVERDUE_DAYS, CLOSED_STATUSES,
+    utc_now as _utc_now, make_aware as _aware,
+    lazy_overdue_single as _lazy_overdue_single,
+    lazy_overdue_batch as _lazy_overdue_batch,
+    compute_days as _compute_days,
+)
 
 admin_parcel_bp = Blueprint('admin_parcel', __name__)
 
-_OVERDUE_DAYS = 7
-_CLOSED = {ParcelStatus.picked_up, ParcelStatus.returned, ParcelStatus.abnormal}
-
-
-def _utc_now():
-    return datetime.now(timezone.utc)
-
-
-def _aware(dt):
-    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
-
-
-def _lazy_overdue_single(parcel):
-    if parcel.status == ParcelStatus.pending:
-        if _aware(parcel.arrived_at) + timedelta(days=_OVERDUE_DAYS) < _utc_now():
-            parcel.status = ParcelStatus.overdue
-            db.session.commit()
-
-
-def _lazy_overdue_batch(parcels):
-    needs_commit = False
-    for p in parcels:
-        if p.status == ParcelStatus.pending:
-            if _aware(p.arrived_at) + timedelta(days=_OVERDUE_DAYS) < _utc_now():
-                p.status = ParcelStatus.overdue
-                needs_commit = True
-    if needs_commit:
-        db.session.commit()
-
-
-def _compute_days(parcel):
-    days_waiting = (_utc_now() - _aware(parcel.arrived_at)).days
-    if parcel.status == ParcelStatus.pending:
-        return days_waiting, max(0, _OVERDUE_DAYS - days_waiting), None
-    if parcel.status == ParcelStatus.overdue:
-        return days_waiting, None, max(0, days_waiting - _OVERDUE_DAYS)
-    return days_waiting, None, None
+_CLOSED = CLOSED_STATUSES
 
 
 def _build_timeline(parcel):
-    overdue_at = _aware(parcel.arrived_at) + timedelta(days=_OVERDUE_DAYS)
+    overdue_at = _aware(parcel.arrived_at) + timedelta(days=OVERDUE_DAYS)
     timeline = [{'status': 'pending', 'label': '已登記', 'at': parcel.created_at.isoformat()}]
 
     show_overdue = parcel.status in (ParcelStatus.overdue, ParcelStatus.returned, ParcelStatus.abnormal)
@@ -209,6 +180,9 @@ def create_parcel():
         arrived_at = datetime.strptime(arrived_at_str, '%Y-%m-%d').replace(tzinfo=timezone.utc)
     except ValueError:
         return jsonify({'error': 'arrived_at 格式錯誤，應為 YYYY-MM-DD'}), 400
+
+    if arrived_at.date() > _utc_now().date():
+        return jsonify({'error': 'arrived_at 不可為未來日期'}), 400
 
     resident = Resident.query.filter_by(id=resident_id, organization_id=g.org_id).first()
     if not resident:
@@ -414,10 +388,14 @@ def confirm_pickup(parcel_id):
     if parcel.status not in (ParcelStatus.pending, ParcelStatus.overdue):
         return jsonify({'error': '只能對待領取或已逾期的包裹執行領取操作'}), 400
 
+    _MAX_SIGNATURE_BYTES = 512_000  # 500 KB
+
     data = request.get_json(silent=True) or {}
     signature_data = (data.get('signature_data') or '').strip()
     if not signature_data:
         return jsonify({'error': 'signature_data 為必填'}), 400
+    if len(signature_data.encode('utf-8')) > _MAX_SIGNATURE_BYTES:
+        return jsonify({'error': 'signature_data 超過大小上限（500 KB）'}), 400
 
     now = _utc_now()
     parcel.status = ParcelStatus.picked_up
