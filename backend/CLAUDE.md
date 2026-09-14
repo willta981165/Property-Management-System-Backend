@@ -19,16 +19,42 @@
 ```
 backend/
 ├── app/
-│   ├── __init__.py          # App factory, blueprint 註冊
-│   ├── config.py            # 環境設定
-│   ├── extensions.py        # db, jwt, bcrypt, cors 初始化
-│   ├── models/              # SQLAlchemy ORM Models
-│   ├── routes/              # Blueprint 路由
+│   ├── __init__.py               # App factory, blueprint 註冊
+│   ├── config.py                 # 環境設定
+│   ├── extensions.py             # db, jwt, bcrypt, cors 初始化
+│   ├── models/
+│   │   ├── admin.py
+│   │   ├── organization.py
+│   │   ├── resident.py
+│   │   ├── facility.py
+│   │   ├── facility_slot.py
+│   │   ├── booking.py
+│   │   ├── booking_checkin_log.py
+│   │   ├── qr_action_token.py
+│   │   ├── qr_verification.py
+│   │   ├── repair_ticket.py
+│   │   ├── repair_category.py
+│   │   └── parcel.py             # ✅ 已完成
+│   ├── routes/
+│   │   ├── auth.py
+│   │   ├── org.py
+│   │   ├── admin.py
+│   │   ├── admin_facility.py
+│   │   ├── admin_booking.py
+│   │   ├── admin_qr.py
+│   │   ├── admin_repair.py
+│   │   ├── admin_parcel.py       # ✅ 已完成
+│   │   ├── resident_booking.py
+│   │   ├── resident_qr.py
+│   │   ├── resident_repair.py
+│   │   └── resident_parcel.py    # ✅ 已完成
 │   └── utils/
-│       ├── decorators.py    # admin_required decorator
-│       └── logger.py        # app_logger
-├── migrations/              # Flask-Migrate 遷移檔
-├── nginx/                   # Nginx 設定
+│       ├── decorators.py         # admin_required decorator
+│       └── logger.py             # app_logger
+├── docs/
+│   └── parcel-spec.md            # ✅ 已完成
+├── migrations/                   # Flask-Migrate 遷移檔
+├── nginx/                        # Nginx 設定
 ├── Dockerfile
 ├── docker-compose.yml
 ├── requirements.txt
@@ -100,18 +126,33 @@ backend/
 - 所有認證事件（登入、註冊、改密）皆記錄 IP、user_id、org_id
 - 不記錄任何密碼或敏感個資
 
+### ✅ 包裹管理（Parcel）
+- **Spec：** `docs/parcel-spec.md`
+- **檔案：** `app/models/parcel.py`、`app/routes/admin_parcel.py`、`app/routes/resident_parcel.py`
+- **管理員路由（prefix: `/admin/parcels`）：**
+  - GET `/` — 列表（支援 `status` 篩選 + `q` 搜尋）
+  - POST `/` — 登記新包裹
+  - GET `/<parcel_id>` — 詳情（含 status_timeline）
+  - POST `/<parcel_id>/pickup` — 確認領取（住戶簽名 base64）
+  - PUT `/<parcel_id>/status` — 更新逾期包裹狀態（returned / abnormal）
+  - GET `/residents/search` — 搜尋住戶（登記表單用）
+- **住戶路由（prefix: `/resident/parcels`）：**
+  - GET `/` — 取得我的包裹列表（`status` 篩選）
+  - GET `/<parcel_id>` — 取得我的包裹詳情
+- **狀態流程：** `pending` → `overdue`（7天 lazy update）→ `picked_up` / `returned` / `abnormal`
+- 包裹編號格式：`PCL-YYYYMM{id:04d}`
+- 逾期判斷：API 查詢時 lazy update（不需背景排程）
+- 簽名以 base64 字串存 DB（`signature_data` 欄位）
+
 ---
 
 ## 待開發功能
 
-### 🔲 包裹管理（Parcel）
-- **Spec：** 開發前由 Planner Agent 讀 UIUX 圖後產出 `docs/parcel-spec.md`
-- 功能範圍：管理員登記包裹到達、住戶查詢包裹、住戶領取後標記完成
-- 預計新增：`app/models/parcel.py`、`app/routes/admin_parcel.py`、`app/routes/resident_parcel.py`
-
-### 🔲 公告系統（Announcement）
-- 管理員發布公告、住戶查閱
-- 支援置頂、已讀狀態追蹤
+### 🔲 公告系統（Announcement / 布告欄）
+- **Spec：** 開發前由 Planner Agent 讀 UIUX 圖後產出 `docs/announcement-spec.md`
+- 功能範圍：管理員發布 / 編輯 / 刪除公告，住戶查閱公告列表與詳情
+- 支援置頂（is_pinned）、已讀狀態追蹤（per-resident read log）
+- 預計新增：`app/models/announcement.py`、`app/models/announcement_read.py`、`app/routes/admin_announcement.py`、`app/routes/resident_announcement.py`
 
 ### 🔲 訪客門禁（Visitor Access）
 - 住戶邀請訪客、產生臨時通行 QR
@@ -231,3 +272,23 @@ app_logger.warning(f"[MODULE] Warning | reason=xxx")
 1. 功能 Spec 寫入 `docs/{feature}-spec.md`
 2. 所有 Agent 開始前先讀此 `CLAUDE.md` + 對應 spec 檔案
 3. Model 完成後，API Agent 才開始（有依賴關係時循序進行）
+
+---
+
+## 下一個功能：公告系統（Announcement / 布告欄）
+
+**開發前置流程：**
+1. **Planner Agent** 讀取 UIUX 圖 → 產出 `docs/announcement-spec.md`
+2. **Model Agent** 讀 `CLAUDE.md` + `docs/announcement-spec.md` → 建立 `app/models/announcement.py`、`app/models/announcement_read.py` + migration
+3. **API Agent A**（管理員端） 讀 spec → 建立 `app/routes/admin_announcement.py`
+4. **API Agent B**（住戶端） 讀 spec → 建立 `app/routes/resident_announcement.py`（可與 Agent A 並行）
+5. **Reviewer Agent** 審查權限隔離、input validation、log 完整性
+
+**預期 Blueprint prefix：**
+- 管理員：`/admin/announcements`
+- 住戶：`/resident/announcements`
+
+**核心設計要點（待 Planner 確認後補充）：**
+- 公告需支援置頂（`is_pinned`）與排序
+- 已讀追蹤：獨立 `AnnouncementRead` model（`announcement_id` + `resident_id`）
+- 資料隔離：所有查詢加 `organization_id` 過濾

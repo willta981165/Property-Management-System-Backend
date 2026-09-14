@@ -55,6 +55,10 @@ def create_app(env=None):
     if not os.path.exists(LOG_DIR):
         os.makedirs(LOG_DIR, exist_ok=True)
 
+    upload_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'uploads', 'announcements')
+    if not os.path.exists(upload_dir):
+        os.makedirs(upload_dir, exist_ok=True)
+
     app = Flask(__name__)
     app.config.from_object(get_config(env))
 
@@ -109,6 +113,8 @@ def create_app(env=None):
     from .routes.resident_repair import resident_repair_bp
     from .routes.resident_qr import resident_qr_bp
     from .routes.resident_parcel import resident_parcel_bp
+    from .routes.admin_announcement import admin_announcement_bp, admin_announcement_category_bp
+    from .routes.resident_announcement import resident_announcement_bp
 
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(admin_bp, url_prefix='/api/admin')
@@ -122,6 +128,9 @@ def create_app(env=None):
     app.register_blueprint(resident_repair_bp, url_prefix='/api')
     app.register_blueprint(resident_qr_bp, url_prefix='/api')
     app.register_blueprint(resident_parcel_bp, url_prefix='/api/resident/parcels')
+    app.register_blueprint(admin_announcement_bp,          url_prefix='/api/admin/announcements')
+    app.register_blueprint(admin_announcement_category_bp, url_prefix='/api/admin/announcement-categories')
+    app.register_blueprint(resident_announcement_bp,       url_prefix='/api/resident/announcements')
 
     @app.get('/health')
     def health():
