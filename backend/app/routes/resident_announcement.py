@@ -193,7 +193,7 @@ def download_attachment(announcement_id, attachment_id):
         required: true
     responses:
       200:
-        description: 附件檔案串流（Content-Disposition: attachment）
+        description: "附件檔案串流（Content-Disposition: attachment）"
       403:
         description: 僅住戶可使用
       404:
