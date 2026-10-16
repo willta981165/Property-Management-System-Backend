@@ -6,6 +6,7 @@ from ..models.parcel import Parcel, ParcelStatus, ParcelSize
 from ..models.resident import Resident
 from ..utils.decorators import admin_required
 from ..utils.logger import app_logger
+from ..utils.notify import push_notification
 from ..utils.parcel_helpers import (
     OVERDUE_DAYS, CLOSED_STATUSES,
     utc_now as _utc_now, make_aware as _aware,
@@ -205,6 +206,15 @@ def create_parcel():
 
     now = _utc_now()
     parcel.parcel_code = f"PCL-{now.strftime('%Y%m')}{parcel.id:04d}"
+    push_notification(
+        org_id=g.org_id,
+        resident_id=resident_id,
+        ntype='parcel_arrived',
+        title='包裹已到達',
+        body=f'您有一件來自「{logistics_company}」的包裹待領取，請至管理處領取。',
+        related_type='parcel',
+        related_id=parcel.id,
+    )
     db.session.commit()
 
     app_logger.info(

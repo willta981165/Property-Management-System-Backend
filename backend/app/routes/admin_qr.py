@@ -18,6 +18,7 @@ from ..models.qr_action_token import QrActionToken
 from ..models.qr_verification import QrVerification, VERIFICATION_TTL_SECONDS
 from ..utils.decorators import admin_required
 from ..utils.logger import app_logger
+from ..utils.notify import push_notification
 
 admin_qr_bp = Blueprint('admin_qr', __name__)
 
@@ -273,6 +274,15 @@ def confirm_checkin():
             result='success',
             trace_id=trace_id,
         ))
+        push_notification(
+            org_id=g.org_id,
+            resident_id=booking.resident_id,
+            ntype='booking_checkin',
+            title='公設報到完成',
+            body=f'您已成功完成「{booking.facility.name}」的報到。',
+            related_type='booking',
+            related_id=booking.id,
+        )
         db.session.commit()
 
     except Exception as e:
@@ -404,6 +414,15 @@ def confirm_departure():
             result='success',
             trace_id=trace_id,
         ))
+        push_notification(
+            org_id=g.org_id,
+            resident_id=booking.resident_id,
+            ntype='booking_departed',
+            title='公設離場完成',
+            body=f'您已完成「{booking.facility.name}」的離場，感謝使用。',
+            related_type='booking',
+            related_id=booking.id,
+        )
         db.session.commit()
 
     except Exception as e:

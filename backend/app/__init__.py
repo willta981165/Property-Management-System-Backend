@@ -115,6 +115,8 @@ def create_app(env=None):
     from .routes.resident_parcel import resident_parcel_bp
     from .routes.admin_announcement import admin_announcement_bp, admin_announcement_category_bp
     from .routes.resident_announcement import resident_announcement_bp
+    from .routes.resident_dashboard import resident_dashboard_bp
+    from .routes.resident_notification import resident_notification_bp
 
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(admin_bp, url_prefix='/api/admin')
@@ -131,6 +133,8 @@ def create_app(env=None):
     app.register_blueprint(admin_announcement_bp,          url_prefix='/api/admin/announcements')
     app.register_blueprint(admin_announcement_category_bp, url_prefix='/api/admin/announcement-categories')
     app.register_blueprint(resident_announcement_bp,       url_prefix='/api/resident/announcements')
+    app.register_blueprint(resident_dashboard_bp,          url_prefix='/api/resident/dashboard')
+    app.register_blueprint(resident_notification_bp,       url_prefix='/api/resident/notifications')
 
     @app.get('/health')
     def health():

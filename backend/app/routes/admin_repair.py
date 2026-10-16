@@ -14,6 +14,7 @@ from ..models.repair_category import RepairCategory
 from ..models.repair_ticket import RepairTicket, RepairStatus
 from ..utils.decorators import admin_required
 from ..utils.logger import app_logger
+from ..utils.notify import push_notification
 
 admin_repair_bp = Blueprint('admin_repair', __name__)
 
@@ -254,6 +255,7 @@ def update_repair(ticket_id):
 
     data = request.get_json(silent=True) or {}
     changed = False
+    old_status = ticket.status
 
     if 'status' in data:
         try:
@@ -272,6 +274,21 @@ def update_repair(ticket_id):
 
     if not changed:
         return jsonify({'error': '請提供 status 或 admin_reply'}), 400
+
+    _STATUS_LABELS = {
+        RepairStatus.in_progress: '處理中',
+        RepairStatus.completed: '已完成',
+    }
+    if ticket.status != old_status and ticket.status in _STATUS_LABELS:
+        push_notification(
+            org_id=g.org_id,
+            resident_id=ticket.resident_id,
+            ntype='repair_updated',
+            title='報修單狀態更新',
+            body=f'您的報修申請「{ticket.title}」已更新為{_STATUS_LABELS[ticket.status]}。',
+            related_type='repair',
+            related_id=ticket.id,
+        )
 
     db.session.commit()
 

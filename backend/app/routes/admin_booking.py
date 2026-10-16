@@ -17,6 +17,7 @@ from ..models.facility import Facility
 from ..models.facility_slot import FacilitySlot
 from ..utils.decorators import admin_required
 from ..utils.logger import app_logger
+from ..utils.notify import push_notification
 
 admin_booking_bp = Blueprint('admin_booking', __name__)
 
@@ -197,6 +198,15 @@ def cancel_booking(booking_id):
 
     booking.status = BookingStatus.cancelled
     booking.cancelled_by_admin = True
+    push_notification(
+        org_id=g.org_id,
+        resident_id=booking.resident_id,
+        ntype='booking_cancelled',
+        title='預約已取消',
+        body=f'您 {booking.booking_date} 的公設預約已由管理員取消。',
+        related_type='booking',
+        related_id=booking_id,
+    )
     db.session.commit()
 
     app_logger.warning(
