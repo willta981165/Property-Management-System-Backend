@@ -2,6 +2,16 @@ import os
 from datetime import timedelta
 
 
+def _ensure_psycopg2_scheme(url: str | None) -> str | None:
+    if not url:
+        return url
+    if url.startswith('postgres://'):
+        return url.replace('postgres://', 'postgresql+psycopg2://', 1)
+    if url.startswith('postgresql://'):
+        return url.replace('postgresql://', 'postgresql+psycopg2://', 1)
+    return url
+
+
 class Config:
     SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-prod')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
@@ -25,12 +35,12 @@ class Config:
 
 class DevelopmentConfig(Config):
     DEBUG = True
-    SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL', 'sqlite:///dev.db')
+    SQLALCHEMY_DATABASE_URI = _ensure_psycopg2_scheme(os.getenv('DATABASE_URL', 'sqlite:///dev.db'))
 
 
 class ProductionConfig(Config):
     DEBUG = False
-    SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL')
+    SQLALCHEMY_DATABASE_URI = _ensure_psycopg2_scheme(os.getenv('DATABASE_URL'))
 
 
 _config_map = {
