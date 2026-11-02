@@ -38,6 +38,7 @@ def _build_logger() -> logging.Logger:
 
     logger.setLevel(logging.DEBUG)
 
+    os.makedirs(LOG_DIR, exist_ok=True)
     handler = TimedRotatingFileHandler(
         filename=LOG_FILE,
         when='midnight',
