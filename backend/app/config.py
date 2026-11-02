@@ -43,9 +43,17 @@ class ProductionConfig(Config):
     SQLALCHEMY_DATABASE_URI = _ensure_psycopg2_scheme(os.getenv('DATABASE_URL'))
 
 
+class TestingConfig(Config):
+    TESTING = True
+    SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
+    SECRET_KEY = 'test-secret-key'
+    JWT_SECRET_KEY = 'test-jwt-secret-key'
+
+
 _config_map = {
     'development': DevelopmentConfig,
     'production': ProductionConfig,
+    'testing': TestingConfig,
 }
 
 
