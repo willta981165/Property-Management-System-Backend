@@ -43,9 +43,9 @@ class Booking(db.Model):
                            default=lambda: datetime.now(timezone.utc),
                            onupdate=lambda: datetime.now(timezone.utc))
 
-    facility = db.relationship('Facility', backref='bookings', lazy=True)
-    resident = db.relationship('Resident', backref='bookings', lazy=True)
-    slot = db.relationship('FacilitySlot', lazy=True)
+    facility = db.relationship('Facility', backref=db.backref('bookings', cascade='all, delete-orphan'), lazy=True)
+    resident = db.relationship('Resident', backref=db.backref('bookings', cascade='all, delete-orphan'), lazy=True)
+    slot = db.relationship('FacilitySlot', backref=db.backref('bookings', cascade='all, delete-orphan'), lazy=True)
 
     def to_dict(self):
         return {
