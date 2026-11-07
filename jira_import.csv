@@ -1,0 +1,25 @@
+Summary,Issue Type,Priority,Description,Acceptance Criteria,Labels
+密碼建立失敗未顯示錯誤訊息,Bug,High,當密碼建立失敗（格式不符、長度不足等），畫面無任何錯誤提示。,失敗時於欄位下方顯示對應錯誤訊息。,frontend
+整體畫面微移,Bug,Medium,操作過程中畫面會輕微位移，影響使用體驗。,確認並修復造成 layout shift 的元件，畫面固定不移動。,frontend
+取消後選項被裁切,Bug,Medium,執行取消操作後，畫面上的選項元件顯示異常，有被切到的情形。,取消後畫面恢復正常，選項完整顯示。,frontend
+登入畫面選項含不應顯示的字樣（包裹、報修、公告、管理）,Bug,Medium,登入頁的某個下拉或選單中出現「包裹、報修、公告、管理」等字樣。,移除這些選項，登入頁僅保留必要欄位。,frontend
+捲軸造成破版,Bug,Medium,頁面出現捲軸時版面跑版。,修復捲軸觸發時的 layout 問題，版面維持正常。,frontend
+新增公告入口找不到,Bug,High,管理員端找不到新增公告的按鈕或選項。,確認入口位置明顯可見，或補上缺少的新增按鈕。,frontend
+移除登入畫面的 Email 字樣,Task,Medium,系統僅支援員工編號登入，登入頁不應出現 Email 相關文字或欄位。,登入頁移除所有 Email 字樣，僅保留員工編號輸入。,frontend
+移除帳號註冊中的 Email 欄位,Task,Medium,帳號註冊流程不需要 Email。,移除註冊表單中的 Email 欄位。,frontend
+移除住戶類型選項（住戶／家屬）,Task,Medium,住戶不需區分類型。,移除住戶新增／編輯畫面中的類型下拉選項。,frontend
+移除推播通知按鈕,Task,Low,推播通知功能尚未實作，按鈕先移除。,相關按鈕從畫面移除。,frontend
+移除常見問題按鈕,Task,Low,功能尚未準備好，先隱藏。,常見問題入口從畫面移除。,frontend
+移除頭貼（住戶首頁、個人設定；管理員個人設定）,Task,Low,頭貼功能尚未實作。,住戶首頁、住戶個人設定、管理員個人設定皆移除頭貼顯示區塊。,frontend
+停用雙擊放大,Task,Medium,行動裝置雙擊會觸發系統縮放，影響操作。,全域停用雙擊放大（meta viewport 或手勢攔截）。,frontend
+必填欄位前端驗證,Task,High,表單送出前需擋下空白必填欄位。,所有表單的必填欄位在送出時若為空，顯示提示並阻止送出。,frontend
+支援下滑返回手勢,Task,Medium,畫面向下滑動時應可返回上一頁。,所有子頁面支援下滑返回。,frontend
+預約時間合理性驗證,Task,High,預約時段選擇需符合公設開放時間，不可選擇非開放時段。,前端過濾掉不在開放時間內的時段，或在送出前提示錯誤。,frontend
+忘記密碼／聯絡管理處時顯示管理處電話,Task,Medium,住戶點擊「忘記密碼」或「聯絡管理處註冊」時，下方顯示管理處聯絡電話。,顯示對應組織的管理處電話號碼。,frontend
+公告附件上傳與下載串接測試,Task,High,API 已開好，前端需完成上傳與下載的串接並測試。,管理員可上傳附件至公告；住戶可在公告詳情頁下載附件。,frontend
+調整新增報修按鈕位置（往上移）,Task,Low,報修頁的新增報修按鈕位置偏低。,按鈕上移至視覺上更合理的位置。,frontend
+修改密碼串接 API,Task,High,修改密碼畫面尚未串 API。,住戶提交新密碼後呼叫對應 API，成功提示、失敗回報錯誤。,frontend
+報修 List 帶入申請住戶資訊,Task,Medium,管理員的報修工單列表未顯示申請住戶姓名／戶號。,每筆報修單顯示住戶姓名與戶號。,frontend
+鈴鐺角標串接 API,Task,High,鈴鐺圖示的未讀數字尚未串接。,進入首頁時呼叫 GET /api/resident/dashboard/summary 取得 notification_unread 並顯示；點擊後呼叫 PATCH /api/resident/notifications/read-all 歸零。,frontend
+首頁各狀態面板串接 Dashboard API,Task,High,包裹、公告、報修、預約的角標數字尚未串接。,呼叫 GET /api/resident/dashboard/summary，將 parcel_pending / announcement_unread / repair_active / booking_upcoming 帶入對應面板。,frontend
+API 必填欄位與驗證規則補充文件,Task,Medium,前端開發需要知道每支 API 的必填欄位與格式規則。,整理各 API 的欄位規則文件（或更新 Swagger），供前端對照。,frontend

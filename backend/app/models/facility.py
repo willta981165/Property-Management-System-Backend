@@ -35,7 +35,8 @@ class Facility(db.Model):
                            onupdate=lambda: datetime.now(timezone.utc))
 
     slots = db.relationship('FacilitySlot', backref='facility', lazy=True,
-                            order_by='FacilitySlot.sort_order')
+                            order_by='FacilitySlot.sort_order',
+                            cascade='all, delete-orphan')
 
     def to_dict(self):
         return {
