@@ -46,6 +46,7 @@ class Booking(db.Model):
     facility = db.relationship('Facility', backref=db.backref('bookings', cascade='all, delete-orphan'), lazy=True)
     resident = db.relationship('Resident', backref=db.backref('bookings', cascade='all, delete-orphan'), lazy=True)
     slot = db.relationship('FacilitySlot', backref=db.backref('bookings', cascade='all, delete-orphan'), lazy=True)
+    checkin_logs = db.relationship('BookingCheckinLog', backref='booking', cascade='all, delete-orphan', lazy=True)
 
     def to_dict(self):
         return {
