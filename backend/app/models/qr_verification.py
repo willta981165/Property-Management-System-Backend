@@ -17,7 +17,7 @@ class QrVerification(db.Model):
     confirmed_at = db.Column(db.DateTime(timezone=True), nullable=True)
     result = db.Column(db.String(20), nullable=False, default='pending')
 
-    token = db.relationship('QrActionToken', lazy=True)
+    token = db.relationship('QrActionToken', backref=db.backref('verifications', cascade='all, delete-orphan'), lazy=True)
 
     @staticmethod
     def generate_id() -> str:

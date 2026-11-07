@@ -10,6 +10,7 @@ class AnnouncementRead(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     announcement_id = db.Column(db.Integer, db.ForeignKey('announcements.id'), nullable=False)
     resident_id = db.Column(db.Integer, db.ForeignKey('residents.id'), nullable=False)
+    resident = db.relationship('Resident', backref=db.backref('announcement_reads', cascade='all, delete-orphan'), lazy=True)
     organization_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=False)
     read_at = db.Column(
         db.DateTime(timezone=True), nullable=False,

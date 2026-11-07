@@ -8,6 +8,7 @@ class Notification(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     org_id = db.Column(db.Integer, db.ForeignKey('organizations.id'), nullable=False)
     resident_id = db.Column(db.Integer, db.ForeignKey('residents.id'), nullable=False)
+    resident = db.relationship('Resident', backref=db.backref('notifications', cascade='all, delete-orphan'), lazy=True)
     type = db.Column(db.String(50), nullable=False)
     title = db.Column(db.String(100), nullable=False)
     body = db.Column(db.String(255), nullable=False)

@@ -47,7 +47,7 @@ class Parcel(db.Model):
         onupdate=lambda: datetime.now(timezone.utc),
     )
 
-    resident = db.relationship('Resident', lazy=True)
+    resident = db.relationship('Resident', backref=db.backref('parcels', cascade='all, delete-orphan'), lazy=True)
     registered_by = db.relationship('Admin', lazy=True)
 
     def to_dict(self):

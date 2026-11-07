@@ -36,7 +36,7 @@ class RepairTicket(db.Model):
         onupdate=lambda: datetime.now(timezone.utc),
     )
 
-    resident = db.relationship('Resident', lazy=True)
+    resident = db.relationship('Resident', backref=db.backref('repair_tickets', cascade='all, delete-orphan'), lazy=True)
     replied_by = db.relationship('Admin', lazy=True)
 
     @property

@@ -17,6 +17,7 @@ class QrActionToken(db.Model):
     subject_type = db.Column(db.String(20), nullable=False)   # 'booking'
     subject_id = db.Column(db.Integer, nullable=False)         # booking_id
     issued_to_user_id = db.Column(db.Integer, db.ForeignKey('residents.id'), nullable=False)
+    issued_to_user = db.relationship('Resident', backref=db.backref('qr_action_tokens', cascade='all, delete-orphan'), lazy=True)
     expires_at = db.Column(db.DateTime(timezone=True), nullable=False)
     used_at = db.Column(db.DateTime(timezone=True), nullable=True)
     revoked_at = db.Column(db.DateTime(timezone=True), nullable=True)
